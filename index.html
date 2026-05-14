@@ -65,8 +65,12 @@ html,body{width:100%;min-height:100vh;background:#060818;color:#e8e6f0;font-fami
 .name-hint{text-align:center;font-size:11px;color:#6b5a8a;margin-bottom:18px}
 
 /* start btn */
-.start-btn{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 20px 20px;background:linear-gradient(135deg,#f472b6 0%,#9333ea 50%,#6366f1 100%);border:none;border-radius:26px;padding:17px;font-size:19px;font-weight:700;color:#fff;cursor:pointer;width:calc(100% - 40px);letter-spacing:.5px;box-shadow:0 4px 28px rgba(167,139,250,.35);transition:transform .15s,box-shadow .15s}
+.start-btn{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 20px 10px;background:linear-gradient(135deg,#f472b6 0%,#9333ea 50%,#6366f1 100%);border:none;border-radius:26px;padding:17px;font-size:19px;font-weight:700;color:#fff;cursor:pointer;width:calc(100% - 40px);letter-spacing:.5px;box-shadow:0 4px 28px rgba(167,139,250,.35);transition:transform .15s,box-shadow .15s}
 .start-btn:active{transform:scale(.98)}
+
+/*已有暗号按钮样式*/
+.has-code-btn{display:block;text-align:center;margin:0 20px 20px;font-size:13px;color:#a78bfa;background:transparent;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:8px 0;transition:color .2s}
+.has-code-btn:hover{color:#c4b5fd}
 
 /* bottom bar */
 .bot-bar{display:flex;justify-content:center;border-top:1px solid rgba(167,139,250,.1);border-bottom:1px solid rgba(167,139,250,.1);padding:10px 0;margin-bottom:0}
@@ -105,7 +109,7 @@ html,body{width:100%;min-height:100vh;background:#060818;color:#e8e6f0;font-fami
 #s-calc{display:none;align-items:center;justify-content:center;flex-direction:column;min-height:100vh;background:radial-gradient(ellipse at 50% 50%,#120828,#060818);position:relative;z-index:1}
 #s-calc.active{display:flex}
 .calc-ring{width:90px;height:90px;border-radius:50%;border:3px solid rgba(167,139,250,.12);border-top-color:#a855f7;animation:spin 1s linear infinite;margin-bottom:20px}
-@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes spin{to{transform:rotate(360deg)}
 
 /* ===== RESULT ===== */
 #s-result{background:radial-gradient(ellipse at 50% 0%,#120828,#060818);display:none;flex-direction:column;align-items:center;padding:20px 20px 40px;position:relative;z-index:1}
@@ -241,6 +245,9 @@ html,body{width:100%;min-height:100vh;background:#060818;color:#e8e6f0;font-fami
   </div>
   <p class="name-hint">你的专属人格档案将以此铭记</p>
   <button class="start-btn" onclick="startTest()">开始探索 →</button>
+  
+  <!-- 已有暗号按钮 -->
+  <button class="has-code-btn" id="has-code-btn" onclick="goToUnlock()">已有暗号？直接解锁报告 →</button>
 
   <div class="bot-bar">
     <div class="bb-item"><span class="bb-icon">⬡</span>60道专业情境题</div>
@@ -530,8 +537,74 @@ const TYPES={
 let answers={},curQ=0,result=null,testStartTime=null;
 const SALT='mbti_x9z_2024';
 function hashCode(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h)+s.charCodeAt(i)|0;return Math.abs(h).toString(36).toUpperCase().padStart(8,'0').substring(0,8);}
-
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
+
+/* ===== localStorage 持久化功能 ===== */
+function saveResult(){
+  if(result){
+    try{
+      localStorage.setItem('mbti_result', JSON.stringify(result));
+      if(testStartTime){
+        localStorage.setItem('mbti_test_start_time', testStartTime.toString());
+      }
+    }catch(e){
+      console.warn('localStorage save failed:', e);
+    }
+  }
+}
+
+function loadResult(){
+  try{
+    const saved = localStorage.getItem('mbti_result');
+    if(saved){
+      result = JSON.parse(saved);
+      const savedTime = localStorage.getItem('mbti_test_start_time');
+      if(savedTime){
+        testStartTime = parseInt(savedTime);
+      }
+      return true;
+    }
+  }catch(e){
+    console.warn('localStorage load failed:', e);
+  }
+  return false;
+}
+
+function clearSavedResult(){
+  try{
+    localStorage.removeItem('mbti_result');
+    localStorage.removeItem('mbti_test_start_time');
+  }catch(e){
+    console.warn('localStorage clear failed:', e);
+  }
+}
+
+/* ===== 页面加载时检查已有结果 ===== */
+document.addEventListener('DOMContentLoaded', function(){
+  const hasResult = loadResult();
+  if(hasResult){
+    // 显示"已有暗号"按钮
+    const btn = document.getElementById('has-code-btn');
+    if(btn){
+      btn.style.display = 'block';
+    }
+  } else {
+    // 隐藏按钮
+    const btn = document.getElementById('has-code-btn');
+    if(btn){
+      btn.style.display = 'none';
+    }
+  }
+});
+
+/* ===== 跳转到解锁页面 ===== */
+function goToUnlock(){
+  // 确保result已加载
+  if(!result){
+    loadResult();
+  }
+  showScreen('s-unlock');
+}
 
 function startTest(){answers={};curQ=0;result=null;testStartTime=Date.now();showScreen('s-question');renderQ();}
 
@@ -583,6 +656,13 @@ function calcResult(){
     result={type,pcts:{E:Math.round(E/tEI*100),I:Math.round(I/tEI*100),S:Math.round(S/tSN*100),N:Math.round(N/tSN*100),T:Math.round(T/tTF*100),F:Math.round(F/tTF*100),J:Math.round(J/tJP*100),P:Math.round(P/tJP*100)}};
     // increment count
     try{let e=parseInt(localStorage.getItem('mbti_extra')||'0');e++;localStorage.setItem('mbti_extra',e);}catch(e){}
+    // 保存结果到localStorage
+    saveResult();
+    // 显示首页的暗号按钮
+    const btn = document.getElementById('has-code-btn');
+    if(btn){
+      btn.style.display = 'block';
+    }
     showResult();
   },2400);
 }
@@ -622,7 +702,13 @@ function showResult(){
   showScreen('s-result');
 }
 
-function showUnlock(){showScreen('s-unlock');}
+function showUnlock(){
+  // 确保result已加载
+  if(!result){
+    loadResult();
+  }
+  showScreen('s-unlock');
+}
 
 function verifyCode(){
   const inp=document.getElementById('code-inp').value.trim().toUpperCase();
@@ -633,7 +719,13 @@ function verifyCode(){
 }
 
 function showFullReport(){
-  if(!result)return;
+  // 确保result已加载
+  if(!result){
+    if(!loadResult()){
+      alert('未找到测试结果，请先完成测试');
+      return;
+    }
+  }
   const t=result.type,d=TYPES[t]||TYPES['INTJ'];
   document.getElementById('rp-type').textContent=t;document.getElementById('rp-name').textContent=d.name;document.getElementById('rp-motto').textContent=d.motto;
   const p=result.pcts;
@@ -647,6 +739,8 @@ function showFullReport(){
   <div class="rp-sec"><h2>💕 恋爱与人际关系</h2><p>${d.love}</p></div>
   <div class="rp-sec"><h2>🌱 个人成长建议</h2>${d.growth.map(g=>`<div class="growth-item"><strong>${g.title}</strong><span>${g.tip}</span></div>`).join('')}</div>
   <div class="rp-sec"><h2>🔮 你的隐藏天赋</h2><div class="talent-box">${d.talent}</div></div>`;
+  // 清除已保存的结果（报告已展示）
+  clearSavedResult();
   showScreen('s-report');
 }
 
